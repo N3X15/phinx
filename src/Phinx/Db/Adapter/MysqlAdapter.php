@@ -604,6 +604,9 @@ class MysqlAdapter extends PdoAdapter implements AdapterInterface
             case 'string':
                 return array('name' => 'varchar', 'limit' => 255);
                 break;
+            case 'char':
+                return array('name' => 'char', 'limit' => 255);
+                break;
             case 'text':
                 return array('name' => 'text');
                 break;
@@ -665,6 +668,12 @@ class MysqlAdapter extends PdoAdapter implements AdapterInterface
             switch ($matches[1]) {
                 case 'varchar':
                     $type = 'string';
+                    if ($limit == 255) {
+                        $limit = null;
+                    }
+                    break;
+				case 'char':
+                    $type = 'char';
                     if ($limit == 255) {
                         $limit = null;
                     }
