@@ -94,7 +94,7 @@ class Column
     /**
      * Sets the column type.
      *
-     * @param string $type
+     * @param mixed $type
      * @return Column
      */
     public function setType($type)
@@ -106,7 +106,7 @@ class Column
     /**
      * Gets the column type.
      *
-     * @return string
+     * @return mixed
      */
     public function getType()
     {

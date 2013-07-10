@@ -598,6 +598,18 @@ class MysqlAdapter extends PdoAdapter implements AdapterInterface
      */
     public function getSqlType($type)
     {
+    	// Detect custom types.
+    	if(is_array($var))
+		{
+			if(isset($type['mysql']))
+			{
+				return array('name'=>$type['mysql']);
+			} elseif(isset($type['default'])) {
+				return array('name'=>$type['default']);
+			} else {
+                throw new \RuntimeException('The type array specified does not support mysql, nor does it specify a default.');
+			}
+		}
         switch ($type) {
             case 'primary_key':
                 return self::DEFAULT_PRIMARY_KEY;
