@@ -620,7 +620,7 @@ class MysqlAdapter extends PdoAdapter implements AdapterInterface
     public function getSqlType($type)
     {
     	// Detect custom types.
-    	if(is_array($var))
+    	if(is_array($type))
 		{
 			if(isset($type['mysql']))
 			{
