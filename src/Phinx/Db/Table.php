@@ -318,9 +318,12 @@ class Table
         }
         
         // check column type
-        if (!in_array($column->getType(), $this->getAdapter()->getColumnTypes())) {
-            throw new \InvalidArgumentException('An invalid column type was specified.');
-        }
+        $type=$column->getType();
+        if(!is_array($type)) {
+	        if (!in_array($type, $this->getAdapter()->getColumnTypes())) {
+	            throw new \InvalidArgumentException('An invalid column type was specified.');
+	        }
+		}
         
         $this->columns[] = $column;
         return $this;
