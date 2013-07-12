@@ -5,9 +5,9 @@ namespace Test\Phinx\Console\Command;
 use Symfony\Component\Console\Tester\CommandTester,
     Symfony\Component\Console\Output\StreamOutput,
     Phinx\Config\Config,
-    Phinx\Console\Command\Migrate;
+    Phinx\Console\Command\Rollback;
 
-class MigrateTest extends \PHPUnit_Framework_TestCase
+class RollbackTest extends \PHPUnit_Framework_TestCase
 {
     protected $config = array();
 
@@ -32,17 +32,17 @@ class MigrateTest extends \PHPUnit_Framework_TestCase
     public function testExecute()
     {
         $application = new \Phinx\Console\PhinxApplication('testing');
-        $application->add(new Migrate());
+        $application->add(new Rollback());
         
         // setup dependencies
         $output = new StreamOutput(fopen('php://memory', 'a', false));
         
-        $command = $application->find('migrate');
+        $command = $application->find('rollback');
         
         // mock the manager class
         $managerStub = $this->getMock('\Phinx\Migration\Manager', array(), array($this->config, $output));
         $managerStub->expects($this->once())
-                    ->method('migrate');
+                    ->method('rollback');
         
         $command->setConfig($this->config);
         $command->setManager($managerStub);
@@ -56,17 +56,17 @@ class MigrateTest extends \PHPUnit_Framework_TestCase
     public function testExecuteWithEnvironmentOption()
     {
         $application = new \Phinx\Console\PhinxApplication('testing');
-        $application->add(new Migrate());
+        $application->add(new Rollback());
         
         // setup dependencies
         $output = new StreamOutput(fopen('php://memory', 'a', false));
         
-        $command = $application->find('migrate');
+        $command = $application->find('rollback');
         
         // mock the manager class
         $managerStub = $this->getMock('\Phinx\Migration\Manager', array(), array($this->config, $output));
         $managerStub->expects($this->once())
-                    ->method('migrate');
+                    ->method('rollback');
         
         $command->setConfig($this->config);
         $command->setManager($managerStub);
@@ -79,17 +79,17 @@ class MigrateTest extends \PHPUnit_Framework_TestCase
     public function testDatabaseNameSpecified()
     {
         $application = new \Phinx\Console\PhinxApplication('testing');
-        $application->add(new Migrate());
+        $application->add(new Rollback());
         
         // setup dependencies
         $output = new StreamOutput(fopen('php://memory', 'a', false));
         
-        $command = $application->find('migrate');
+        $command = $application->find('rollback');
         
         // mock the manager class
         $managerStub = $this->getMock('\Phinx\Migration\Manager', array(), array($this->config, $output));
         $managerStub->expects($this->once())
-                    ->method('migrate');
+                    ->method('rollback');
         
         $command->setConfig($this->config);
         $command->setManager($managerStub);

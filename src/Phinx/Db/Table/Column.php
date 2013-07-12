@@ -63,12 +63,27 @@ class Column
      * @var boolean
      */
     protected $identity = false;
+
+    /**
+     * @var integer
+     */
+    protected $precision;
+
+    /**
+     * @var integer
+     */
+    protected $scale;
     
     /**
      * @var string
      */
     protected $after;
-    
+
+    /**
+     * @var string
+     */
+    protected $update;
+
     /**
      * Sets the column name.
      *
@@ -116,7 +131,7 @@ class Column
     /**
      * Sets the column limit.
      *
-     * @param string $limit
+     * @param integer $limit
      * @return Column
      */
     public function setLimit($limit)
@@ -128,7 +143,7 @@ class Column
     /**
      * Gets the column limit.
      *
-     * @return string
+     * @return integer
      */
     public function getLimit()
     {
@@ -245,7 +260,73 @@ class Column
     {
         return $this->after;
     }
+
+    /**
+     * Sets the 'ON UPDATE' mysql column function.
+     *
+     * @param  string $update On Update function
+     * @return Column
+     */
+    public function setUpdate($update)
+    {
+        $this->update = $update;
+        return $this;
+    }
+
+    /**
+     * Returns the value of the ON UPDATE column function.
+     *
+     * @return string
+     */
+    public function getUpdate()
+    {
+        return $this->update;
+    }
+
+    /**
+     * Sets the column precision for decimal.
+     *
+     * @param integer $precision
+     * @return Column
+     */
+    public function setPrecision($precision)
+    {
+        $this->precision = $precision;
+        return $this;
+    }
     
+    /**
+     * Gets the column precision for decimal.
+     *
+     * @return integer
+     */
+    public function getPrecision()
+    {
+        return $this->precision;
+    }
+
+    /**
+     * Sets the column scale for decimal.
+     *
+     * @param integer $scale
+     * @return Column
+     */
+    public function setScale($scale)
+    {
+        $this->scale = $scale;
+        return $this;
+    }
+    
+    /**
+     * Gets the column scale for decimal.
+     *
+     * @return integer
+     */
+    public function getScale()
+    {
+        return $this->scale;
+    }
+
     /**
      * Utility method that maps an array of column options to this objects methods.
      *
@@ -255,7 +336,7 @@ class Column
     public function setOptions($options)
     {
         // Valid Options
-        $validOptions = array('limit', 'length', 'default', 'null', 'precision', 'scale', 'after');
+        $validOptions = array('limit', 'length', 'default', 'null', 'precision', 'scale', 'after', 'update');
         foreach ($options as $option => $value) {
             if (!in_array($option, $validOptions)) {
                 throw new \RuntimeException('\'' . $option . '\' is not a valid column option.');
