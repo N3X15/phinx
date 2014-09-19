@@ -3,7 +3,7 @@
  * Phinx
  *
  * (The MIT license)
- * Copyright (c) 2013 Rob Morgan
+ * Copyright (c) 2014 Rob Morgan
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated * documentation files (the "Software"), to
@@ -28,10 +28,10 @@
  */
 namespace Phinx\Db\Adapter;
 
-use Symfony\Component\Console\Output\OutputInterface,
-    Symfony\Component\Console\Output\NullOutput,
-    Phinx\Db\Table,
-    Phinx\Migration\MigrationInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Output\NullOutput;
+use Phinx\Db\Table;
+use Phinx\Migration\MigrationInterface;
 
 /**
  * Phinx PDO Adapter.
@@ -68,9 +68,8 @@ abstract class PdoAdapter implements AdapterInterface
     /**
      * Class Constructor.
      *
-     * @param array           $options Options
-     * @param OutputInterface $output  Output Interface
-     * @return void
+     * @param array $options Options
+     * @param OutputInterface $output Output Interface
      */
     public function __construct(array $options, OutputInterface $output = null)
     {
@@ -84,14 +83,15 @@ abstract class PdoAdapter implements AdapterInterface
      * Sets the adapter options.
      *
      * @param array $options Options
-     * return AdapterInterface
+     * @return AdapterInterface
      */
     public function setOptions(array $options)
     {
         $this->options = $options;
 
-        if (isset($options['default_migration_table']))
+        if (isset($options['default_migration_table'])) {
             $this->setSchemaTableName($options['default_migration_table']);
+        }
 
         return $this;
     }
@@ -115,7 +115,7 @@ abstract class PdoAdapter implements AdapterInterface
         return $this;
     }
     
-   /**
+    /**
      * {@inheritdoc}
      */
     public function getOutput()
@@ -131,7 +131,7 @@ abstract class PdoAdapter implements AdapterInterface
      * Sets the schema table name.
      *
      * @param string $schemaTableName Schema Table Name
-     * @return void
+     * @return PdoAdapter
      */
     public function setSchemaTableName($schemaTableName)
     {
@@ -234,7 +234,7 @@ abstract class PdoAdapter implements AdapterInterface
                 $outArr = array();
                 foreach ($args as $arg) {
                     if (is_array($arg)) {
-                        $arg = array_map(function($value) {
+                        $arg = array_map(function ($value) {
                             return '\'' . $value . '\'';
                         }, $arg);
                         $outArr[] = '[' . implode(', ', $arg)  . ']';
@@ -243,7 +243,8 @@ abstract class PdoAdapter implements AdapterInterface
                 
                     $outArr[] = '\'' . $arg . '\'';
                 }
-                return $this->getOutput()->writeln(' -- ' . $command . '(' . implode(', ', $outArr) . ')');
+                $this->getOutput()->writeln(' -- ' . $command . '(' . implode(', ', $outArr) . ')');
+                return;
             }
             $this->getOutput()->writeln(' -- ' . $command);
         }
@@ -306,10 +307,13 @@ abstract class PdoAdapter implements AdapterInterface
      */
     public function getVersions()
     {
-        $versions = array();
-        
         $rows = $this->fetchAll(sprintf('SELECT * FROM %s ORDER BY version ASC', $this->getSchemaTableName()));
-        return array_map(function($v) {return $v['version'];}, $rows);
+        return array_map(
+            function ($v) {
+                return $v['version'];
+            },
+            $rows
+        );
     }
     
     /**
@@ -317,7 +321,7 @@ abstract class PdoAdapter implements AdapterInterface
      */
     public function migrated(MigrationInterface $migration, $direction, $startTime, $endTime)
     {
-        if (strtolower($direction) == MigrationInterface::UP) {
+        if (strcasecmp($direction, MigrationInterface::UP) === 0) {
             // up
             $sql = sprintf(
                 'INSERT INTO %s ('
@@ -347,30 +351,7 @@ abstract class PdoAdapter implements AdapterInterface
 
         return $this;
     }
-    
-    /**
-     * Describes a database table.
-     *
-     * @todo MySQL Specific so move to MysqlAdapter.
-     * @return array
-     */
-    public function describeTable($tableName)
-    {
-        $options = $this->getOptions();
-        
-        // mysql specific
-        $sql = sprintf(
-            'SELECT *'
-            . ' FROM information_schema.tables'
-            . ' WHERE table_schema = "%s"'
-            . ' AND table_name = "%s"',
-            $options['name'],
-            $tableName
-        );
-        
-        return $this->fetchRow($sql);
-    }
-    
+
     /**
      * {@inheritdoc}
      */
@@ -389,13 +370,13 @@ abstract class PdoAdapter implements AdapterInterface
                 'id' => false
             );
             
-            $table = new \Phinx\Db\Table($this->getSchemaTableName(), $options, $this);
+            $table = new Table($this->getSchemaTableName(), $options, $this);
             $table->addColumn('version', 'biginteger', array('limit' => 14))
                   ->addColumn('start_time', 'timestamp')
                   ->addColumn('end_time', 'timestamp')
                   ->save();
-        } catch(\Exception $exception) {
-            throw new \InvalidArgumentException('There was a problem creating the schema table');
+        } catch (\Exception $exception) {
+            throw new \InvalidArgumentException('There was a problem creating the schema table: ' . $exception->getMessage());
         }
     }
 
@@ -414,7 +395,6 @@ abstract class PdoAdapter implements AdapterInterface
     public function getColumnTypes()
     {
         return array(
-            'primary_key',
             'string',
             'char',
             'text',
@@ -429,5 +409,32 @@ abstract class PdoAdapter implements AdapterInterface
             'binary',
             'boolean'
         );
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    protected function isCustomType($type, $key) 
+    {
+        return is_array($type);
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    protected function getCustomType($type, $key) 
+    {
+        // Detect custom types. - N3X
+        if(is_array($type))
+        {
+            if(isset($type[$key]))
+            {
+                return array('name'=>$type[$key]);
+            } elseif(isset($type['default'])) {
+                return array('name'=>$type['default']);
+            } else {
+                throw new \RuntimeException('The type array specified does not support '.$key.', nor does it specify a default.');
+            }
+        }
     }
 }

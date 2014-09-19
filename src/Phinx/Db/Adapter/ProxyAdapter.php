@@ -3,7 +3,7 @@
  * Phinx
  *
  * (The MIT license)
- * Copyright (c) 2013 Rob Morgan
+ * Copyright (c) 2014 Rob Morgan
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated * documentation files (the "Software"), to
@@ -28,13 +28,13 @@
  */
 namespace Phinx\Db\Adapter;
 
-use Symfony\Component\Console\Output\OutputInterface,
-    Phinx\Db\Table,
-    Phinx\Db\Table\Column,
-    Phinx\Db\Table\Index,
-    Phinx\Db\Table\ForeignKey,
-    Phinx\Migration\MigrationInterface,
-    Phinx\Migration\IrreversibleMigrationException;
+use Symfony\Component\Console\Output\OutputInterface;
+use Phinx\Db\Table;
+use Phinx\Db\Table\Column;
+use Phinx\Db\Table\Index;
+use Phinx\Db\Table\ForeignKey;
+use Phinx\Migration\MigrationInterface;
+use Phinx\Migration\IrreversibleMigrationException;
 
 /**
  * Phinx Proxy Adapter.
@@ -70,7 +70,7 @@ class ProxyAdapter implements AdapterInterface
     public function __construct(AdapterInterface $adapter = null, OutputInterface $output = null)
     {
         if (null !== $adapter) {
-            $this->setAdapter($adapter);    
+            $this->setAdapter($adapter);
         }
         if (null !== $output) {
             $this->setOutput($output);
@@ -103,7 +103,7 @@ class ProxyAdapter implements AdapterInterface
      * Sets the adapter options.
      *
      * @param array $options Options
-     * return AdapterInterface
+     * @return AdapterInterface
      */
     public function setOptions(array $options)
     {
@@ -130,7 +130,7 @@ class ProxyAdapter implements AdapterInterface
         return $this;
     }
     
-   /**
+    /**
      * {@inheritdoc}
      */
     public function getOutput()
@@ -232,22 +232,7 @@ class ProxyAdapter implements AdapterInterface
      */
     public function getColumnTypes()
     {
-        return array(
-            'primary_key',
-            'string',
-            'char',
-            'text',
-            'integer',
-            'biginteger',
-            'float',
-            'decimal',
-            'datetime',
-            'timestamp',
-            'time',
-            'date',
-            'binary',
-            'boolean'
-        );
+        return $this->getAdapter()->getColumnTypes();
     }
     
     /**
@@ -401,6 +386,14 @@ class ProxyAdapter implements AdapterInterface
     {
         $this->recordCommand('dropIndex', array($tableName, $columns, $options));
     }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function dropIndexByName($tableName, $indexName)
+    {
+        $this->recordCommand('dropIndexByName', array($tableName, $indexName));
+    }
 
     /**
      * {@inheritdoc}
@@ -508,7 +501,10 @@ class ProxyAdapter implements AdapterInterface
         }
         
         $invCommands = array();
-        $supportedCommands = array('createTable', 'renameTable', 'addColumn', 'renameColumn', 'addIndex', 'addForeignKey');
+        $supportedCommands = array(
+            'createTable', 'renameTable', 'addColumn',
+            'renameColumn', 'addIndex', 'addForeignKey'
+        );
         foreach (array_reverse($this->getCommands()) as $command) {
             if (!in_array($command['name'], $supportedCommands)) {
                 throw new IrreversibleMigrationException(sprintf(
@@ -617,5 +613,12 @@ class ProxyAdapter implements AdapterInterface
     public function invertAddForeignKey($args)
     {
         return array('name' => 'dropForeignKey', 'arguments' => array($args[0]->getName(), $args[1]->getColumns()));
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getConnection() {
+        return $this->getAdapter()->getConnection();
     }
 }

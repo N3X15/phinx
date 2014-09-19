@@ -3,7 +3,7 @@
  * Phinx
  *
  * (The MIT license)
- * Copyright (c) 2013 Rob Morgan
+ * Copyright (c) 2014 Rob Morgan
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated * documentation files (the "Software"), to
@@ -28,35 +28,37 @@
  */
 namespace Phinx\Console\Command;
 
-use Phinx\Migration\Util,
-    Symfony\Component\Console\Command\Command,
-    Symfony\Component\Console\Input\InputInterface,
-    Symfony\Component\Console\Input\InputArgument,
-    Symfony\Component\Console\Input\InputOption,
-    Symfony\Component\Console\Output\OutputInterface;
+use Phinx\Migration\Util;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Output\OutputInterface;
     
 class Create extends AbstractCommand
 {
     /**
      * {@inheritdoc}
      */
-     protected function configure()
-     {
-         parent::configure();
+    protected function configure()
+    {
+        parent::configure();
          
-         $this->setName('create')
-              ->setDescription('Create a new migration')
-              ->addArgument('name', InputArgument::REQUIRED, 'What is the name of the migration?')
-              ->setHelp(sprintf(
-                  '%sCreates a new database migration%s',
-                  PHP_EOL,
-                  PHP_EOL
-              ));
+        $this->setName('create')
+            ->setDescription('Create a new migration')
+            ->addArgument('name', InputArgument::REQUIRED, 'What is the name of the migration?')
+            ->setHelp(sprintf(
+                '%sCreates a new database migration%s',
+                PHP_EOL,
+                PHP_EOL
+            ));
     }
 
     /**
      * Migrate the database.
-     * 
+     *
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      * @return void
      */
     protected function execute(InputInterface $input, OutputInterface $output)
