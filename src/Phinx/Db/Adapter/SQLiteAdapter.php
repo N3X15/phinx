@@ -1043,4 +1043,18 @@ class SQLiteAdapter extends PdoAdapter implements AdapterInterface
         }
         return $def;
     }
+    
+    public function setPrimaryKey(Table $table, array $columns) {
+        throw new \RuntimeException('SQLite does not support changing primary key.');
+    }
+    
+    private function quoteAllColumns($columns)
+    {
+        return array_map(
+            function ($v) {
+                return '`' . $v . '`';
+            },
+            $columns
+        );
+    }
 }

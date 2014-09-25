@@ -958,5 +958,22 @@ class MysqlAdapter extends PdoAdapter implements AdapterInterface
 
         return $this->fetchRow($sql);
     }
-
+    
+    public function setPrimaryKey(Table $table, array $columns) {
+        $this->startCommandTimer();
+        $this->writeCommand('setPrimaryKey', array($table, $columns));
+        // http://stackoverflow.com/a/2342193
+        $this->execute(sprintf('ALTER TABLE %s DROP PRIMARY KEY, ADD PRIMARY KEY (%s);', $this->quoteTableName($table->getName()), implode(', ',$this->quoteAllColumns($columns))));
+        $this->endCommandTimer();
+    }
+    
+    private function quoteAllColumns($columns)
+    {
+        return array_map(
+            function ($v) {
+                return '`' . $v . '`';
+            },
+            $columns
+        );
+    }
 }

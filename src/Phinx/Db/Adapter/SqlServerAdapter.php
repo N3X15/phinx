@@ -1113,5 +1113,31 @@ SQL;
 
         return $this;
     }
+    
+    public function setPrimaryKey(Table $table, array $columns) {
+        $this->startCommandTimer();
+        $this->writeCommand('setPrimaryKey', array($table, $columns));
+        array_walk($columns,array($this,'walkAndQuoteColumns'));
+        $this->execute(sprintf('ALTER TABLE %s DROP CONSTRAINT PK_%s',
+            $this->quoteTableName($table->getName()),
+            $table->getName()
+        ));
+        $this->execute(sprintf('ALTER TABLE %s ADD CONSTRAINT PK_%s PRIMARY KEY (%s)',
+            $this->quoteTableName($table->getName()),
+            $table->getName(),
+            implode(', ',$this->quoteAllColumns($columns))
+        ));
+        $this->endCommandTimer();
+    }
+    
+    private function quoteAllColumns($columns)
+    {
+        return array_map(
+            function ($v) {
+                return '[' . $v . ']';
+            },
+            $columns
+        );
+    }
 }
 

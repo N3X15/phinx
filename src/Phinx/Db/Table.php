@@ -592,4 +592,20 @@ class Table
         
         $this->reset(); // reset pending changes
     }
+    
+    /**
+     * Change a table's primary key.
+     * 
+     * WARNING: This drops any prior primary keys.
+     *
+     * @param array         $columns
+     * @param string|Column $newColumnType New Column Type
+     * @param array         $options       Options
+     * @return Table
+     */
+    public function setPrimaryKey($columns)
+    {
+        $this->getAdapter()->setPrimaryKey($this, $columns);
+        return $this;
+    }
 }

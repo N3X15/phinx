@@ -621,4 +621,11 @@ class ProxyAdapter implements AdapterInterface
     public function getConnection() {
         return $this->getAdapter()->getConnection();
     }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function setPrimaryKey(Table $table, array $columns) {
+        return $this->getAdapter()->setPrimaryKey($table, $columns);
+    }
 }

@@ -115,6 +115,16 @@ interface AdapterInterface
     public function getAdapterType();
     
     /**
+     * Set a new primary key.  
+     * 
+     * WARNING: Drops the old one.
+     * @param $table The table to perform this operation on.
+     * @param $columns The column(s) to use as a primary key.
+     * @return void
+     */
+    public function setPrimaryKey(Table $table, array $columns);
+    
+    /**
      * Initializes the database connection.
      *
      * @throws \RuntimeException When the requested database driver is not installed.

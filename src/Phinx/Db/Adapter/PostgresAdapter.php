@@ -221,15 +221,7 @@ class PostgresAdapter extends PdoAdapter implements AdapterInterface
             } elseif (is_array($options['primary_key'])) { // handle primary_key => array('tag_id', 'resource_id')
                 // PHP 5.4 will allow access of $this, so we can call quoteColumnName() directly in the anonymous function,
                 // but for now just hard-code the adapter quotes
-                $sql .= implode(
-                    ',',
-                    array_map(
-                        function ($v) {
-                            return '"' . $v . '"';
-                        },
-                        $options['primary_key']
-                    )
-                );
+                $sql .= implode(',',$this->quoteAllColumns($options['primary_key']));
             }
             $sql .= ')';
         } else {
@@ -1058,5 +1050,31 @@ class PostgresAdapter extends PdoAdapter implements AdapterInterface
     {
         $options = $this->getOptions();
         return (isset($options['schema'])) ? $options['schema'] : 'public';
+    }
+    
+    public function setPrimaryKey(Table $table, array $columns) {
+        $this->startCommandTimer();
+        $this->writeCommand('setPrimaryKey', array($table, $columns));
+        array_walk($columns,array($this,'walkAndQuoteColumns'));
+        $this->execute(sprintf('ALTER TABLE %s DROP CONSTRAINT %s_pkey',
+            $this->quoteTableName($table->getName()),
+            $table->getName()
+        ));
+        $this->execute(sprintf('ALTER TABLE %s ADD CONSTRAINT %s_pkey PRIMARY KEY (%s) DEFERRABLE INITIALLY IMMEDIATE',
+            $this->quoteTableName($table->getName()),
+            $table->getName(),
+            implode(', ',$this->quoteAllColumns($columns))
+        ));
+        $this->endCommandTimer();
+    }
+    
+    private function quoteAllColumns($columns)
+    {
+        return array_map(
+            function ($v) {
+                return '"' . $v . '"';
+            },
+            $columns
+        );
     }
 }
