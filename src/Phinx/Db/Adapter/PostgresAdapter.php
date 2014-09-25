@@ -1055,7 +1055,6 @@ class PostgresAdapter extends PdoAdapter implements AdapterInterface
     public function setPrimaryKey(Table $table, array $columns) {
         $this->startCommandTimer();
         $this->writeCommand('setPrimaryKey', array($table, $columns));
-        array_walk($columns,array($this,'walkAndQuoteColumns'));
         $this->execute(sprintf('ALTER TABLE %s DROP CONSTRAINT %s_pkey',
             $this->quoteTableName($table->getName()),
             $table->getName()
