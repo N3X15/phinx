@@ -404,7 +404,7 @@ interface AdapterInterface
      * @param string $dbtype Database type name
      * @return boolean
      */
-    protected function isCustomType($type, $dbtype);
+    public function isCustomType($type, $dbtype);
     
     /**
      * Get the type specified
@@ -412,5 +412,5 @@ interface AdapterInterface
      * @param string $dbtype Database type name
      * @return array
      */
-    protected function getCustomType($type, $dbtype);
+    public function getCustomType($type, $dbtype);
 }

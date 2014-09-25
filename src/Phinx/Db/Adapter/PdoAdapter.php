@@ -414,7 +414,7 @@ abstract class PdoAdapter implements AdapterInterface
     /**
      * {@inheritdoc}
      */
-    protected function isCustomType($type, $key) 
+    public function isCustomType($type, $key) 
     {
         return is_array($type);
     }
@@ -422,7 +422,7 @@ abstract class PdoAdapter implements AdapterInterface
     /**
      * {@inheritdoc}
      */
-    protected function getCustomType($type, $key) 
+    public function getCustomType($type, $key) 
     {
         // Detect custom types. - N3X
         if(is_array($type))
