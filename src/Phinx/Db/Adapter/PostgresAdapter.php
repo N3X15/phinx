@@ -399,8 +399,8 @@ class PostgresAdapter extends PdoAdapter implements AdapterInterface
             $this->quoteColumnName($columnName),
             $this->getColumnSqlDefinition($newColumn)
         );
-        $sql = preg_replace('/ NOT NULL$/', '', $sql);
-        $sql = preg_replace('/ NULL$/', '', $sql);
+        $sql = preg_replace('/\bNOT NULL\b/', '', $sql);
+        $sql = preg_replace('/\bNULL\b/', '', $sql);
         $this->execute($sql);
         // process null
         $sql = sprintf(
