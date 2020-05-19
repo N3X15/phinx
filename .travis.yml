@@ -1,26 +1,88 @@
-before_script:
-    - composer self-update
-    - composer install
-    - mysql -e 'create database phinx_testing;'
-    - psql -c 'create database phinx_testing;' -U postgres
 language: php
+
+dist: xenial
+
+services:
+  - postgresql
+  - mysql
+
+addons:
+  postgresql: "9.6"
+
 php:
-  - 5.3
-  - 5.4
-  - 5.5
-  - hhvm
+  - 7.2
+  - 7.4
+
 env:
-  - TESTS_PHINX_DB_ADAPTER_POSTGRES_ENABLED=true
-script:
-    - phpunit --coverage-text --coverage-clover=coverage.clover
-    - wget https://scrutinizer-ci.com/ocular.phar
-    - php ocular.phar code-coverage:upload --format=php-clover coverage.clover
+  global:
+    - CODECOVERAGE=1
+  matrix:
+    - PGSQL_DSN='pgsql://postgres@127.0.0.1/phinx_testing'
+    - MYSQL_DSN='mysql://root@127.0.0.1/phinx_testing' MYSQL_UNIX_SOCKET='/var/run/mysqld/mysqld.sock'
+    - SQLITE_DSN='sqlite:///phinx_testing'
+
 matrix:
-    exclude:
-        - php: hhvm
-          env: TESTS_PHINX_DB_ADAPTER_POSTGRES_ENABLED=true
-    include:
-        - php: hhvm
-          env: TESTS_PHINX_DB_ADAPTER_POSTGRES_ENABLED=false
-    allow_failures:
-        - php: hhvm
+  include:
+    - php: 7.2
+      env: PREFER_LOWEST=1 CODECOVERAGE=0
+
+    - php: 7.4
+      env: CHECKS=1 CODECOVERAGE=0
+
+before_install:
+  - if [[ $MYSQL_DSN ]]; then mysql -e 'create database phinx_testing;'; fi
+  - if [[ $PGSQL_DSN ]]; then psql -c 'create database phinx_testing;' -U postgres; fi
+  - if [[ $PGSQL_DSN ]]; then psql -c 'create extension if not exists citext;' -U postgres; fi
+
+  - |
+      if [[ $CODECOVERAGE == 1 ]]; then
+        pecl channel-update pecl.php.net
+        pecl install pcov
+      fi
+
+  - phpenv config-rm xdebug.ini
+
+install:
+  - if [[ $PREFER_LOWEST != 1 ]]; then travis_retry composer update --no-interaction --prefer-stable; fi
+  - if [[ $PREFER_LOWEST == 1 ]]; then travis_retry composer update --no-interaction --prefer-stable --prefer-lowest; fi
+
+  - if [[ $CHECKS == 1 ]]; then composer require --dev phpstan/phpstan:^0.12; fi
+
+script:
+  - if [[ $CODECOVERAGE == 1 ]]; then vendor/bin/phpunit --verbose --coverage-clover=clover.xml; fi
+  - if [[ $PREFER_LOWEST == 1 ]]; then vendor/bin/phpunit --verbose; fi
+
+  - if [[ $CHECKS == 1 ]]; then composer stan; fi
+  - if [[ $CHECKS == 1 ]]; then composer cs-check; fi
+
+after_success:
+  - |
+      if [[ $CODECOVERAGE == 1 ]]; then
+        wget https://github.com/php-coveralls/php-coveralls/releases/download/v2.1.0/php-coveralls.phar
+        chmod +x php-coveralls.phar
+        ./php-coveralls.phar
+      fi
+
+cache:
+  directories:
+    - $HOME/.composer/cache
+
+notifications:
+  email: false
+
+before_deploy:
+  # have to move symfony/yaml from devDependency to dependency so box packs it
+  - composer require symfony/yaml
+  - composer global require humbug/box:^3.8
+  - ~/.composer/vendor/bin/box compile
+
+deploy:
+  provider: releases
+  api_key:
+    secure: bi+/Jfvxodb2WibSUaSSLMxQnK9wndJIw7N76/M7wAw04en1yJZQnJyaEYrklAtHPCBUaS7x691Ta4O0jN4hFkxs2vPgrXenS9Dzi436095Ga6tEAmTdDbHdmvXzDGDTaH9AbDzq5gGBF+xu4IBzDVO0pvDkzI+I5vJGbJXRws8=
+  file: phinx.phar
+  on:
+    repo: cakephp/phinx
+    tags: true
+    php: 7.2
+    condition: $DEFAULT = 1 && $PREFER_LOWEST != 1
