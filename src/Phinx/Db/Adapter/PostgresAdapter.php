@@ -401,10 +401,6 @@ class PostgresAdapter extends PdoAdapter implements AdapterInterface
         );
         $sql = preg_replace('/\bNOT NULL\b/', '', $sql);
         $sql = preg_replace('/\bNULL\b/', '', $sql);
-        if($newColumn->getDefault()!=null) 
-            $sql = preg_replace('/\bDEFAULT\b/', 'SET DEFAULT', $sql);
-        else
-            $sql = preg_replace('/\bDEFAULT\b/', 'DROP DEFAULT', $sql);
         $this->execute($sql);
         // process null
         $sql = sprintf(
