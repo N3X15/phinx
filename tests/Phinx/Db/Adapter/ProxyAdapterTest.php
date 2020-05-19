@@ -2,117 +2,145 @@
 
 namespace Test\Phinx\Db\Adapter;
 
-use Phinx\Db\Adapter\PdoAdapter;
 use Phinx\Db\Adapter\ProxyAdapter;
-use Phinx\Db\Table;
-use Phinx\Db\Table\Index;
-use Phinx\Db\Table\ForeignKey;
 use Phinx\Migration\IrreversibleMigrationException;
+use PHPUnit\Framework\TestCase;
 
-class ProxyAdapterTest extends \PHPUnit_Framework_TestCase
+class ProxyAdapterTest extends TestCase
 {
     /**
      * @var \Phinx\Db\Adapter\ProxyAdapter
      */
     private $adapter;
-    
-    public function setUp()
+
+    public function setUp(): void
     {
-        $this->adapter = new ProxyAdapter();
-        
-        $stub = $this->getMock('\Phinx\Db\Adapter\PdoAdapter', array(), array(array()));
-        $this->adapter->setAdapter($stub);
+        $stub = $this->getMockBuilder('\Phinx\Db\Adapter\PdoAdapter')
+            ->setConstructorArgs([[]])
+            ->setMethods([])
+            ->getMock();
+
+        $stub->expects($this->any())
+            ->method('isValidColumnType')
+            ->will($this->returnValue(true));
+
+        $this->adapter = new ProxyAdapter($stub);
     }
-    
-    public function tearDown()
+
+    public function tearDown(): void
     {
         unset($this->adapter);
     }
-    
+
     public function testProxyAdapterCanInvertCreateTable()
     {
-        $table = new \Phinx\Db\Table('atable');
-        $this->adapter->createTable($table);
-        
-        $commands = $this->adapter->getInvertedCommands();
-        $this->assertEquals('dropTable', $commands[0]['name']);
-        $this->assertEquals('atable', $commands[0]['arguments'][0]);
+        $table = new \Phinx\Db\Table('atable', [], $this->adapter);
+        $table->addColumn('column1', 'string')
+              ->save();
+
+        $commands = $this->adapter->getInvertedCommands()->getActions();
+        $this->assertInstanceOf('Phinx\Db\Action\DropTable', $commands[0]);
+        $this->assertEquals('atable', $commands[0]->getTable()->getName());
     }
-    
+
     public function testProxyAdapterCanInvertRenameTable()
     {
-        $this->adapter->renameTable('oldname', 'newname');
-        
-        $commands = $this->adapter->getInvertedCommands();
-        $this->assertEquals('renameTable', $commands[0]['name']);
-        $this->assertEquals('newname', $commands[0]['arguments'][0]);
-        $this->assertEquals('oldname', $commands[0]['arguments'][1]);
+        $table = new \Phinx\Db\Table('oldname', [], $this->adapter);
+        $table->rename('newname')
+              ->save();
+
+        $commands = $this->adapter->getInvertedCommands()->getActions();
+        $this->assertInstanceOf('Phinx\Db\Action\RenameTable', $commands[0]);
+        $this->assertEquals('newname', $commands[0]->getTable()->getName());
+        $this->assertEquals('oldname', $commands[0]->getNewName());
     }
-    
+
     public function testProxyAdapterCanInvertAddColumn()
     {
-        $table = new \Phinx\Db\Table('atable');
-        $column = new \Phinx\Db\Table\Column();
-        $column->setName('acolumn');
-        
-        $this->adapter->addColumn($table, $column);
+        $this->adapter
+            ->getAdapter()
+            ->expects($this->any())
+            ->method('hasTable')
+            ->will($this->returnValue(true));
+        $table = new \Phinx\Db\Table('atable', [], $this->adapter);
+        $table->addColumn('acolumn', 'string')
+              ->save();
 
-        $commands = $this->adapter->getInvertedCommands();
-        $this->assertEquals('dropColumn', $commands[0]['name']);
-        $this->assertEquals('atable', $commands[0]['arguments'][0]);
-        $this->assertContains('acolumn', $commands[0]['arguments'][1]);
+        $commands = $this->adapter->getInvertedCommands()->getActions();
+        $this->assertInstanceOf('Phinx\Db\Action\RemoveColumn', $commands[0]);
+        $this->assertEquals('atable', $commands[0]->getTable()->getName());
+        $this->assertEquals('acolumn', $commands[0]->getColumn()->getName());
     }
-    
+
     public function testProxyAdapterCanInvertRenameColumn()
     {
-        $this->adapter->renameColumn('atable', 'oldname', 'newname');
-        
-        $commands = $this->adapter->getInvertedCommands();
-        $this->assertEquals('renameColumn', $commands[0]['name']);
-        $this->assertEquals('atable', $commands[0]['arguments'][0]);
-        $this->assertEquals('newname', $commands[0]['arguments'][1]);
-        $this->assertEquals('oldname', $commands[0]['arguments'][2]);
+        $this->adapter
+            ->getAdapter()
+            ->expects($this->any())
+            ->method('hasTable')
+            ->will($this->returnValue(true));
+
+        $table = new \Phinx\Db\Table('atable', [], $this->adapter);
+        $table->renameColumn('oldname', 'newname')
+              ->save();
+
+        $commands = $this->adapter->getInvertedCommands()->getActions();
+        $this->assertInstanceOf('Phinx\Db\Action\RenameColumn', $commands[0]);
+        $this->assertEquals('newname', $commands[0]->getColumn()->getName());
+        $this->assertEquals('oldname', $commands[0]->getNewName());
     }
-    
+
     public function testProxyAdapterCanInvertAddIndex()
     {
-        $table = new \Phinx\Db\Table('atable');
-        $index = new \Phinx\Db\Table\Index();
-        $index->setType(\Phinx\Db\Table\Index::INDEX)
-              ->setColumns(array('email'));
-        
-        $this->adapter->addIndex($table, $index);
+        $this->adapter
+            ->getAdapter()
+            ->expects($this->any())
+            ->method('hasTable')
+            ->will($this->returnValue(true));
 
-        $commands = $this->adapter->getInvertedCommands();
-        $this->assertEquals('dropIndex', $commands[0]['name']);
-        $this->assertEquals('atable', $commands[0]['arguments'][0]);
-        $this->assertContains('email', $commands[0]['arguments'][1]);
+        $table = new \Phinx\Db\Table('atable', [], $this->adapter);
+        $table->addIndex(['email'])
+              ->save();
+
+        $commands = $this->adapter->getInvertedCommands()->getActions();
+        $this->assertInstanceOf('Phinx\Db\Action\DropIndex', $commands[0]);
+        $this->assertEquals('atable', $commands[0]->getTable()->getName());
+        $this->assertEquals(['email'], $commands[0]->getIndex()->getColumns());
     }
-    
+
     public function testProxyAdapterCanInvertAddForeignKey()
     {
-        $table = new \Phinx\Db\Table('atable');
-        $refTable = new \Phinx\Db\Table('refTable');
-        $fk = new \Phinx\Db\Table\ForeignKey();
-        $fk->setReferencedTable($refTable)
-           ->setColumns(array('ref_table_id'))
-           ->setReferencedColumns(array('id'));
-        
-        $this->adapter->addForeignKey($table, $fk);
+        $this->adapter
+            ->getAdapter()
+            ->expects($this->any())
+            ->method('hasTable')
+            ->will($this->returnValue(true));
 
-        $commands = $this->adapter->getInvertedCommands();
-        $this->assertEquals('dropForeignKey', $commands[0]['name']);
-        $this->assertEquals('atable', $commands[0]['arguments'][0]);
-        $this->assertContains('ref_table_id', $commands[0]['arguments'][1]);
+        $table = new \Phinx\Db\Table('atable', [], $this->adapter);
+        $table->addForeignKey(['ref_table_id'], 'refTable')
+              ->save();
+
+        $commands = $this->adapter->getInvertedCommands()->getActions();
+        $this->assertInstanceOf('Phinx\Db\Action\DropForeignKey', $commands[0]);
+        $this->assertEquals('atable', $commands[0]->getTable()->getName());
+        $this->assertEquals(['ref_table_id'], $commands[0]->getForeignKey()->getColumns());
     }
-    
-    /**
-     * @expectedException \Phinx\Migration\IrreversibleMigrationException
-     * @expectedExceptionMessage Cannot reverse a "createDatabase" command
-     */
+
     public function testGetInvertedCommandsThrowsExceptionForIrreversibleCommand()
     {
-        $this->adapter->recordCommand('createDatabase', array('testdb'));
+        $this->adapter
+            ->getAdapter()
+            ->expects($this->any())
+            ->method('hasTable')
+            ->will($this->returnValue(true));
+
+        $table = new \Phinx\Db\Table('atable', [], $this->adapter);
+        $table->removeColumn('thing')
+              ->save();
+
+        $this->expectException(IrreversibleMigrationException::class);
+        $this->expectExceptionMessage('Cannot reverse a "Phinx\Db\Action\RemoveColumn" command');
+
         $this->adapter->getInvertedCommands();
     }
 }

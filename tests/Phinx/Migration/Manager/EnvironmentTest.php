@@ -2,24 +2,62 @@
 
 namespace Test\Phinx\Migration\Manager;
 
-use Phinx\Db\Adapter\MysqlAdapter;
+use Phinx\Db\Adapter\AdapterFactory;
 use Phinx\Migration\Manager\Environment;
+use Phinx\Migration\MigrationInterface;
+use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
-class EnvironmentTest extends \PHPUnit_Framework_TestCase
+class PDOMock extends \PDO
+{
+    /**
+     * @var array
+     */
+    protected $attributes = [];
+
+    public function __construct()
+    {
+    }
+
+    /**
+     * @param int $attribute Attribute
+     *
+     * @return string
+     */
+    public function getAttribute($attribute)
+    {
+        return isset($this->attributes[$attribute]) ? $this->attributes[$attribute] : 'pdomock';
+    }
+
+    /**
+     * @param int $attribute Attribute
+     * @param mixed $value Value
+     *
+     * @return bool
+     */
+    public function setAttribute($attribute, $value)
+    {
+        $this->attributes[$attribute] = $value;
+
+        return true;
+    }
+}
+
+class EnvironmentTest extends TestCase
 {
     /**
      * @var \Phinx\Migration\Manager\Environment
      */
-    private $environment;
+    protected $environment;
 
-    public function setUp()
+    public function setUp(): void
     {
-        $this->environment = new Environment('test', array());
+        $this->environment = new Environment('test', []);
     }
 
     public function testConstructorWorksAsExpected()
     {
-        $env = new Environment('testenv', array('foo' => 'bar'));
+        $env = new Environment('testenv', ['foo' => 'bar']);
         $this->assertEquals('testenv', $env->getName());
         $this->assertArrayHasKey('foo', $env->getOptions());
     }
@@ -32,26 +70,63 @@ class EnvironmentTest extends \PHPUnit_Framework_TestCase
 
     public function testSettingOptions()
     {
-        $this->environment->setOptions(array('foo' => 'bar'));
+        $this->environment->setOptions(['foo' => 'bar']);
         $this->assertArrayHasKey('foo', $this->environment->getOptions());
     }
 
-    /**
-     * @expectedException \RuntimeException
-     * @expectedExceptionMessage Invalid adapter specified: fakeadapter
-     */
     public function testInvalidAdapter()
     {
-        $this->environment->setOptions(array('adapter' => 'fakeadapter'));
+        $this->environment->setOptions(['adapter' => 'fakeadapter']);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Adapter "fakeadapter" has not been registered');
+
         $this->environment->getAdapter();
     }
 
-    /**
-     * @expectedException \RuntimeException
-     */
     public function testNoAdapter()
     {
+        $this->expectException(RuntimeException::class);
+
         $this->environment->getAdapter();
+    }
+
+    public function testGetAdapterWithExistingPdoInstance()
+    {
+        $adapter = $this->getMockForAbstractClass('\Phinx\Db\Adapter\PdoAdapter', [['foo' => 'bar']]);
+        AdapterFactory::instance()->registerAdapter('pdomock', $adapter);
+        $this->environment->setOptions(['connection' => new PDOMock()]);
+        $options = $this->environment->getAdapter()->getOptions();
+        $this->assertEquals('pdomock', $options['adapter']);
+    }
+
+    public function testSetPdoAttributeToErrmodeException()
+    {
+        $pdoMock = new PDOMock();
+        $adapter = $this->getMockForAbstractClass('\Phinx\Db\Adapter\PdoAdapter', [['foo' => 'bar']]);
+        AdapterFactory::instance()->registerAdapter('pdomock', $adapter);
+        $this->environment->setOptions(['connection' => $pdoMock]);
+        $options = $this->environment->getAdapter()->getOptions();
+        $this->assertEquals(\PDO::ERRMODE_EXCEPTION, $options['connection']->getAttribute(\PDO::ATTR_ERRMODE));
+    }
+
+    public function testGetAdapterWithBadExistingPdoInstance()
+    {
+        $this->environment->setOptions(['connection' => new \stdClass()]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('The specified connection is not a PDO instance');
+
+        $this->environment->getAdapter();
+    }
+
+    public function testTablePrefixAdapter()
+    {
+        $this->environment->setOptions(['table_prefix' => 'tbl_', 'adapter' => 'mysql']);
+        $this->assertInstanceOf(\Phinx\Db\Adapter\TablePrefixAdapter::class, $this->environment->getAdapter());
+
+        $tablePrefixAdapter = $this->environment->getAdapter();
+        $this->assertInstanceOf('Phinx\Db\Adapter\MysqlAdapter', $tablePrefixAdapter->getAdapter()->getAdapter());
     }
 
     public function testSchemaName()
@@ -62,24 +137,14 @@ class EnvironmentTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('changelog', $this->environment->getSchemaTableName());
     }
 
-    public function testAdapterFactoryCreatesMysqlAdapter()
-    {
-        $this->environment->setOptions(array('adapter' => 'mysql'));
-        $this->assertTrue($this->environment->getAdapter() instanceof \Phinx\Db\Adapter\MysqlAdapter);
-    }
-
-    public function testAdapterFactoryCreatesSqliteAdapter()
-    {
-        $this->environment->setOptions(array('adapter' => 'sqlite'));
-        $this->assertTrue($this->environment->getAdapter() instanceof \Phinx\Db\Adapter\SQLiteAdapter);
-    }
-
     public function testCurrentVersion()
     {
-        $stub = $this->getMock('\Phinx\Db\Adapter\PdoAdapter', array(), array(array()));
+        $stub = $this->getMockBuilder('\Phinx\Db\Adapter\PdoAdapter')
+            ->setConstructorArgs([[]])
+            ->getMock();
         $stub->expects($this->any())
              ->method('getVersions')
-             ->will($this->returnValue(array('20110301080000')));
+             ->will($this->returnValue(['20110301080000']));
 
         $this->environment->setAdapter($stub);
 
@@ -89,7 +154,9 @@ class EnvironmentTest extends \PHPUnit_Framework_TestCase
     public function testExecutingAMigrationUp()
     {
         // stub adapter
-        $adapterStub = $this->getMock('\Phinx\Db\Adapter\PdoAdapter', array(), array(array()));
+        $adapterStub = $this->getMockBuilder('\Phinx\Db\Adapter\PdoAdapter')
+            ->setConstructorArgs([[]])
+            ->getMock();
         $adapterStub->expects($this->once())
                     ->method('migrated')
                     ->will($this->returnArgument(0));
@@ -97,17 +164,22 @@ class EnvironmentTest extends \PHPUnit_Framework_TestCase
         $this->environment->setAdapter($adapterStub);
 
         // up
-        $upMigration = $this->getMock('\Phinx\Migration\AbstractMigration', array('up'), array('20110301080000'));
+        $upMigration = $this->getMockBuilder('\Phinx\Migration\AbstractMigration')
+            ->setConstructorArgs(['mockenv', '20110301080000'])
+            ->setMethods(['up'])
+            ->getMock();
         $upMigration->expects($this->once())
                     ->method('up');
 
-        $this->environment->executeMigration($upMigration, \Phinx\Migration\MigrationInterface::UP);
+        $this->environment->executeMigration($upMigration, MigrationInterface::UP);
     }
 
     public function testExecutingAMigrationDown()
     {
         // stub adapter
-        $adapterStub = $this->getMock('\Phinx\Db\Adapter\PdoAdapter', array(), array(array()));
+        $adapterStub = $this->getMockBuilder('\Phinx\Db\Adapter\PdoAdapter')
+            ->setConstructorArgs([[]])
+            ->getMock();
         $adapterStub->expects($this->once())
                     ->method('migrated')
                     ->will($this->returnArgument(0));
@@ -115,17 +187,22 @@ class EnvironmentTest extends \PHPUnit_Framework_TestCase
         $this->environment->setAdapter($adapterStub);
 
         // down
-        $downMigration = $this->getMock('\Phinx\Migration\AbstractMigration', array('down'), array('20110301080000'));
+        $downMigration = $this->getMockBuilder('\Phinx\Migration\AbstractMigration')
+            ->setConstructorArgs(['mockenv', '20110301080000'])
+            ->setMethods(['down'])
+            ->getMock();
         $downMigration->expects($this->once())
                       ->method('down');
 
-        $this->environment->executeMigration($downMigration, \Phinx\Migration\MigrationInterface::DOWN);
+        $this->environment->executeMigration($downMigration, MigrationInterface::DOWN);
     }
 
     public function testExecutingAMigrationWithTransactions()
     {
         // stub adapter
-        $adapterStub = $this->getMock('\Phinx\Db\Adapter\PdoAdapter', array(), array(array()));
+        $adapterStub = $this->getMockBuilder('\Phinx\Db\Adapter\PdoAdapter')
+            ->setConstructorArgs([[]])
+            ->getMock();
         $adapterStub->expects($this->once())
                     ->method('beginTransaction');
 
@@ -139,17 +216,22 @@ class EnvironmentTest extends \PHPUnit_Framework_TestCase
         $this->environment->setAdapter($adapterStub);
 
         // migrate
-        $migration = $this->getMock('\Phinx\Migration\AbstractMigration', array('up'), array('20110301080000'));
+        $migration = $this->getMockBuilder('\Phinx\Migration\AbstractMigration')
+            ->setConstructorArgs(['mockenv', '20110301080000'])
+            ->setMethods(['up'])
+            ->getMock();
         $migration->expects($this->once())
                   ->method('up');
 
-        $this->environment->executeMigration($migration, \Phinx\Migration\MigrationInterface::UP);
+        $this->environment->executeMigration($migration, MigrationInterface::UP);
     }
 
     public function testExecutingAChangeMigrationUp()
     {
         // stub adapter
-        $adapterStub = $this->getMock('\Phinx\Db\Adapter\PdoAdapter', array(), array(array()));
+        $adapterStub = $this->getMockBuilder('\Phinx\Db\Adapter\PdoAdapter')
+            ->setConstructorArgs([[]])
+            ->getMock();
         $adapterStub->expects($this->once())
                     ->method('migrated')
                     ->will($this->returnArgument(0));
@@ -157,17 +239,22 @@ class EnvironmentTest extends \PHPUnit_Framework_TestCase
         $this->environment->setAdapter($adapterStub);
 
         // migration
-        $migration = $this->getMock('\Phinx\Migration\AbstractMigration', array('change'), array('20130301080000'));
+        $migration = $this->getMockBuilder('\Phinx\Migration\AbstractMigration')
+            ->setConstructorArgs(['mockenv', '20130301080000'])
+            ->setMethods(['change'])
+            ->getMock();
         $migration->expects($this->once())
                   ->method('change');
 
-        $this->environment->executeMigration($migration, \Phinx\Migration\MigrationInterface::UP);
+        $this->environment->executeMigration($migration, MigrationInterface::UP);
     }
 
     public function testExecutingAChangeMigrationDown()
     {
         // stub adapter
-        $adapterStub = $this->getMock('\Phinx\Db\Adapter\PdoAdapter', array(), array(array()));
+        $adapterStub = $this->getMockBuilder('\Phinx\Db\Adapter\PdoAdapter')
+            ->setConstructorArgs([[]])
+            ->getMock();
         $adapterStub->expects($this->once())
                     ->method('migrated')
                     ->will($this->returnArgument(0));
@@ -175,87 +262,69 @@ class EnvironmentTest extends \PHPUnit_Framework_TestCase
         $this->environment->setAdapter($adapterStub);
 
         // migration
-        $migration = $this->getMock('\Phinx\Migration\AbstractMigration', array('change'), array('20130301080000'));
+        $migration = $this->getMockBuilder('\Phinx\Migration\AbstractMigration')
+            ->setConstructorArgs(['mockenv', '20130301080000'])
+            ->setMethods(['change'])
+            ->getMock();
         $migration->expects($this->once())
                   ->method('change');
 
-        $this->environment->executeMigration($migration, \Phinx\Migration\MigrationInterface::DOWN);
+        $this->environment->executeMigration($migration, MigrationInterface::DOWN);
     }
 
-    /**
-     * Data provider for `::testAdapterRetrieval()`
-     */
-    public function goodAdapterProvider()
+    public function testGettingInputObject()
     {
-        return array(
-            array(
-                'mysql',
-                'Phinx\\Db\\Adapter\\MysqlAdapter',
-            ),
-            array(
-                'pgsql',
-                'Phinx\\Db\\Adapter\\PostgresAdapter',
-            ),
-            array(
-                'sqlite',
-                'Phinx\\Db\\Adapter\\SQLiteAdapter',
-            ),
-            array(
-                'sqlsrv',
-                'Phinx\\Db\\Adapter\\SqlServerAdapter',
-            ),
-            array(
-                'custom',
-                'Phinx\\Db\\Adapter\\MysqlAdapter', //Using Mysql adapter in place of a 'custom' adapter.
-            ),
-        );
+        $mock = $this->getMockBuilder('\Symfony\Component\Console\Input\InputInterface')
+            ->getMock();
+        $this->environment->setInput($mock);
+        $inputObject = $this->environment->getInput();
+        $this->assertInstanceOf('\Symfony\Component\Console\Input\InputInterface', $inputObject);
     }
 
-    /**
-     * @dataProvider goodAdapterProvider
-     */
-    public function testAdapterFactories($adapterName, $adapterClass)
+    public function testExecuteMigrationCallsInit()
     {
-        $env = new Environment('test-'.$adapterName, array());
-        $env->registerAdapter('custom', function (Environment $env) {
-            return new MysqlAdapter($env->getOptions(), $env->getOutput());
-        });
-        $env->setOptions(array('adapter' => $adapterName));
-        $this->assertInstanceOf($adapterClass, $env->getAdapter(), 'Expected adapter provided to be instance of '.$adapterClass.'.');
+        // stub adapter
+        $adapterStub = $this->getMockBuilder('\Phinx\Db\Adapter\PdoAdapter')
+            ->setConstructorArgs([[]])
+            ->getMock();
+        $adapterStub->expects($this->once())
+                    ->method('migrated')
+                    ->will($this->returnArgument(0));
+
+        $this->environment->setAdapter($adapterStub);
+
+        // up
+        $upMigration = $this->getMockBuilder('\Phinx\Migration\AbstractMigration')
+            ->setConstructorArgs(['mockenv', '20110301080000'])
+            ->setMethods(['up', 'init'])
+            ->getMock();
+        $upMigration->expects($this->once())
+                    ->method('up');
+        $upMigration->expects($this->once())
+                    ->method('init');
+
+        $this->environment->executeMigration($upMigration, MigrationInterface::UP);
     }
 
-    /**
-     * Data provider for `::testBadAdapterCalls()`
-     */
-    public function badAdapterProvider()
+    public function testExecuteSeedInit()
     {
-        return array(
-            array(
-                'not-set',
-                null,
-            ),
-            array(
-                'not-callable',
-                'not callable',
-            ),
-            array(
-                'bad-adapter',
-                function(){
-                    return 'not an AdapterInterface';
-                },
-            ),
-        );
-    }
+        // stub adapter
+        $adapterStub = $this->getMockBuilder('\Phinx\Db\Adapter\PdoAdapter')
+            ->setConstructorArgs([[]])
+            ->getMock();
 
-    /**
-     * @dataProvider badAdapterProvider
-     * @expectedException \RuntimeException
-     */
-    public function testBadAdapterFactories($adapterName, $adapter)
-    {
-        $env = new Environment('test-'.$adapterName, array());
-        $env->registerAdapter($adapterName, $adapter);
-        $env->setOptions(array('adapter' => $adapterName));
-        $env->getAdapter();
+        $this->environment->setAdapter($adapterStub);
+
+        // up
+        $seed = $this->getMockBuilder('\Phinx\Seed\AbstractSeed')
+            ->setMethods(['run', 'init'])
+            ->getMock();
+
+        $seed->expects($this->once())
+                    ->method('run');
+        $seed->expects($this->once())
+                    ->method('init');
+
+        $this->environment->executeSeed($seed);
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use Phinx\Db\Table\Column;
 use Phinx\Migration\AbstractMigration;
 
 class UpdateInfoTable extends AbstractMigration
@@ -11,16 +12,15 @@ class UpdateInfoTable extends AbstractMigration
     {
         // info table
         $info = $this->table('info');
-        $info->addColumn('password', 'string', array('limit' => 40))
+        $info->addColumn('password', Column::STRING, ['limit' => 40])
              ->update();
     }
-    
+
     /**
      * Migrate Up.
      */
     public function up()
     {
-    
     }
 
     /**
@@ -28,6 +28,5 @@ class UpdateInfoTable extends AbstractMigration
      */
     public function down()
     {
-
     }
 }

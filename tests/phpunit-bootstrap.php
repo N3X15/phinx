@@ -1,5 +1,7 @@
 <?php
-/*
+declare(strict_types=1);
+
+/**
  * This file is part of the Phinx package.
  *
  * (c) Rob Morgan <robbym@gmail.com>
@@ -8,14 +10,31 @@
  * file that was distributed with this source code.
  */
 
-if (file_exists($file = __DIR__ . '/TestConfiguration.php')) {
-    require_once $file;
-} elseif (file_exists($file = __DIR__ . '/TestConfiguration.php.dist')) {
-    require_once $file;
+use Phinx\Util\Util;
+
+if (is_file('vendor/autoload.php')) {
+    require_once 'vendor/autoload.php';
+} else {
+    require_once dirname(__DIR__) . '/vendor/autoload.php';
 }
 
-if (file_exists($file = __DIR__ . '/../src/Phinx/autoload.php')) {
-    require_once $file;
-} elseif (file_exists($file = __DIR__ . '/../src/Phinx/autoload.php.dist')) {
-    require_once $file;
+// Ensure default test connection is defined
+if (!getenv('SQLITE_DSN') && !getenv('MYSQL_DSN') && !getenv('PGSQL_DSN') && !getenv('SQLSRV_DSN')) {
+    putenv('SQLITE_DSN=sqlite:///:memory:');
+}
+
+if (getenv('SQLITE_DSN')) {
+    define('SQLITE_DB_CONFIG', Util::parseDsn(getenv('SQLITE_DSN')));
+}
+
+if (getenv('MYSQL_DSN')) {
+    define('MYSQL_DB_CONFIG', Util::parseDsn(getenv('MYSQL_DSN')));
+}
+
+if (getenv('PGSQL_DSN')) {
+    define('PGSQL_DB_CONFIG', Util::parseDsn(getenv('PGSQL_DSN')));
+}
+
+if (getenv('SQLSRV_DSN')) {
+    define('SQLSRV_DB_CONFIG', Util::parseDsn(getenv('SQLSRV_DSN')));
 }
