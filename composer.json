@@ -1,5 +1,5 @@
 {
-    "name": "robmorgan/phinx",
+    "name": "n3x15/phinx",
     "type": "library",
     "description": "Phinx makes it ridiculously easy to manage the database migrations for your PHP app.",
     "keywords": ["phinx", "migrations", "database", "db", "database migrations"],
@@ -23,6 +23,11 @@
         "name": "CakePHP Community",
         "role": "Developer",
         "homepage": "https://github.com/cakephp/phinx/graphs/contributors"
+    }, {
+        "name": "Rob Nelson",
+        "email": "nexisentertainment@gmail.com",
+        "homepage": "https://nexisonline.net",
+        "role": "Human Refuse"
     }],
     "require": {
         "php": ">=7.2",
